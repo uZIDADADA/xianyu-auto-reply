@@ -135,24 +135,7 @@ xianyu-auto-reply/
 
 ## 快速开始
 
-### 方式一：服务器一键部署（推荐）
-
-先克隆本 fork 的 dev 分支并进入项目目录，再执行仓库内的部署脚本：
-
-```bash
-bash deploy.sh
-```
-
-该脚本会自动完成部署所需的配置生成、源码构建、旧容器清理与服务启动。
-
-更新版本，直接执行一键更新脚本即可：
-
-```bash
-git pull --ff-only origin dev
-bash update.sh
-```
-
-### 方式二：克隆仓库部署
+### 方式一：克隆仓库部署（推荐）
 
 ```bash
 git clone -b dev https://github.com/uZIDADADA/xianyu-auto-reply.git
@@ -175,11 +158,11 @@ git pull --ff-only origin dev
 bash update.sh
 ```
 
-### 方式三：使用远程 MySQL / Redis 部署
+### 方式二：使用远程 MySQL / Redis 部署
 
 当 MySQL 和 Redis 由外部（如云数据库 RDS、独立服务器或已有实例）提供时，可使用 `deploy_remote.sh`。
-该脚本**不内置 mysql/redis 容器**，仅拉取并启动 4 个应用服务（frontend / backend-web / websocket / scheduler），
-数据库连接信息通过 `.env.remote` 配置。与方式一相同，直接远程拉取脚本执行即可：
+该脚本**不内置 mysql/redis 容器**，仅从当前源码构建并启动 4 个应用服务（frontend / backend-web / websocket / scheduler），
+数据库连接信息通过 `.env.remote` 配置。先按方式一克隆仓库并进入项目目录，再执行：
 
 ```bash
 # 1) 首次运行：自动生成 .env.remote 后退出，提示填写远程连接信息
@@ -189,19 +172,17 @@ bash deploy_remote.sh
 #    MYSQL_HOST / REDIS_HOST 等
 vim .env.remote
 
-# 3) 再次运行：校验配置 → 自动生成 docker-compose.remote.yml → 拉取镜像 → 启动
+# 3) 再次运行：校验配置 → 自动生成 docker-compose.remote.yml → 源码构建 → 启动
 bash deploy_remote.sh
 ```
 
-> 已克隆仓库的也可改用本地脚本：`bash deploy_remote.sh`（首次生成配置后退出，填好 `.env.remote` 再次执行）。
-
 - 首次运行自动生成 `.env.remote`，每次运行自动生成 `docker-compose.remote.yml`，均不影响根目录原有的 `.env` / `docker-compose.yml` / `docker-compose.deploy.yml`
-- 容器名与主套保持一致（`xianyu-backend-web` / `xianyu-websocket` / `xianyu-scheduler` / `xianyu-frontend`），与方式二/方式四属于同一套部署，二者只需选其一，不要同时启动
+- 容器名与主套保持一致（`xianyu-backend-web` / `xianyu-websocket` / `xianyu-scheduler` / `xianyu-frontend`），与方式一/方式三属于同一套部署，只需选择一种方式，不要同时启动
 - 远程 MySQL 需提前创建好数据库（默认 `xianyu_data`）并授权部署机 IP 远程访问，应用启动时会自动建表与补齐字段
 - 建议远程 MySQL 持久设置 `max_connect_errors=100000`；若出现错误码 1129，需在数据库服务器执行 `FLUSH HOSTS` 解除主机封锁
 - 若远程库/缓存就在宿主机上，请使用 `host.docker.internal` 或宿主机内网 IP，**不要填 `localhost` / `127.0.0.1`**
 
-### 方式四：本地源码 Docker 构建
+### 方式三：本地源码 Docker 构建
 
 ```bash
 bash build.sh rebuild
@@ -227,7 +208,7 @@ bash build_websocket.sh     # 重建 WebSocket
 bash build_scheduler.sh     # 重建 Scheduler
 ```
 
-### 方式五：源码本地开发
+### 方式四：源码本地开发
 
 #### 1. 准备基础服务
 
