@@ -3,7 +3,7 @@
 # 闲鱼自动回复系统 - 一键更新脚本
 #
 # 功能：
-# 1. 拉取最新远程镜像并重建应用容器（frontend / backend-web / websocket / scheduler）
+# 1. 从当前源码构建镜像并重建应用容器（frontend / backend-web / websocket / scheduler）
 # 2. 不影响 MySQL / Redis 的数据（数据卷保留）
 # 3. 自动检测并清理加密版（enc）的容器和镜像（保留数据卷）
 # 4. 收尾清理本项目被替换的旧应用镜像，不影响其他项目
@@ -96,12 +96,12 @@ check_docker() {
     echo ""
 }
 
-# 生成远程镜像版 docker-compose.deploy.yml
+# 生成源码构建版 docker-compose.deploy.yml
 generate_compose_file() {
     cat > "$COMPOSE_FILE" << 'COMPOSEEOF'
 services:
   mysql:
-    image: ${MYSQL_IMAGE:-registry.cn-shanghai.aliyuncs.com/zhinian-software/xianyu-mysql:8.0}
+    image: ${MYSQL_IMAGE:-mysql:8.0}
     container_name: xianyu-mysql
     restart: unless-stopped
     environment:
@@ -129,7 +129,7 @@ services:
       start_period: 30s
 
   redis:
-    image: ${REDIS_IMAGE:-registry.cn-shanghai.aliyuncs.com/zhinian-software/xianyu-redis:7-alpine}
+    image: ${REDIS_IMAGE:-redis:7-alpine}
     container_name: xianyu-redis
     restart: unless-stopped
     command: >
@@ -152,7 +152,10 @@ services:
       start_period: 10s
 
   backend-web:
-    image: ${IMAGE_REGISTRY:-registry.cn-shanghai.aliyuncs.com/zhinian-software}/xianyu-backend-web:${IMAGE_TAG:-latest}
+    image: xianyu-clean/backend-web:dev
+    build:
+      context: .
+      dockerfile: backend-web/Dockerfile
     container_name: xianyu-backend-web
     restart: unless-stopped
     environment:
@@ -181,10 +184,10 @@ services:
       - EXTERNAL_API_KEY=${EXTERNAL_API_KEY:-zhinian_bk}
       - FRONTEND_PUBLIC_URL=${FRONTEND_PUBLIC_URL:-}
       - AUTO_START_CRAWL_JOBS=${AUTO_START_CRAWL_JOBS:-true}
-      - REMOTE_OFFICIAL_BASE_URL=${REMOTE_OFFICIAL_BASE_URL:-https://xy.zhinianboke.com}
-      - ENABLE_REMOTE_ADS=${ENABLE_REMOTE_ADS:-true}
-      - ENABLE_REMOTE_ANNOUNCEMENTS=${ENABLE_REMOTE_ANNOUNCEMENTS:-true}
-      - ENABLE_REMOTE_POPUP_ANNOUNCEMENTS=${ENABLE_REMOTE_POPUP_ANNOUNCEMENTS:-true}
+      - REMOTE_OFFICIAL_BASE_URL=${REMOTE_OFFICIAL_BASE_URL:-}
+      - ENABLE_REMOTE_ADS=${ENABLE_REMOTE_ADS:-false}
+      - ENABLE_REMOTE_ANNOUNCEMENTS=${ENABLE_REMOTE_ANNOUNCEMENTS:-false}
+      - ENABLE_REMOTE_POPUP_ANNOUNCEMENTS=${ENABLE_REMOTE_POPUP_ANNOUNCEMENTS:-false}
       - BROWSER_HEADLESS=true
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - SQL_ECHO=${SQL_ECHO:-false}
@@ -212,7 +215,10 @@ services:
       start_period: 60s
 
   websocket:
-    image: ${IMAGE_REGISTRY:-registry.cn-shanghai.aliyuncs.com/zhinian-software}/xianyu-websocket:${IMAGE_TAG:-latest}
+    image: xianyu-clean/websocket:dev
+    build:
+      context: .
+      dockerfile: websocket/Dockerfile
     container_name: xianyu-websocket
     restart: unless-stopped
     environment:
@@ -264,7 +270,10 @@ services:
       start_period: 60s
 
   scheduler:
-    image: ${IMAGE_REGISTRY:-registry.cn-shanghai.aliyuncs.com/zhinian-software}/xianyu-scheduler:${IMAGE_TAG:-latest}
+    image: xianyu-clean/scheduler:dev
+    build:
+      context: .
+      dockerfile: scheduler/Dockerfile
     container_name: xianyu-scheduler
     restart: unless-stopped
     environment:
@@ -314,7 +323,10 @@ services:
       start_period: 60s
 
   frontend:
-    image: ${IMAGE_REGISTRY:-registry.cn-shanghai.aliyuncs.com/zhinian-software}/xianyu-frontend:${IMAGE_TAG:-latest}
+    image: xianyu-clean/frontend:dev
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
     container_name: xianyu-frontend
     restart: unless-stopped
     environment:
@@ -361,12 +373,10 @@ WEBSOCKET_PORT=8090
 SCHEDULER_PORT=8091
 
 # 镜像配置
-IMAGE_REGISTRY=registry.cn-shanghai.aliyuncs.com/zhinian-software
-IMAGE_TAG=latest
 
 # 基础镜像（MySQL / Redis，从阿里云仓库拉取，由 sync_base_images.sh 同步上传）
-MYSQL_IMAGE=registry.cn-shanghai.aliyuncs.com/zhinian-software/xianyu-mysql:8.0
-REDIS_IMAGE=registry.cn-shanghai.aliyuncs.com/zhinian-software/xianyu-redis:7-alpine
+MYSQL_IMAGE=mysql:8.0
+REDIS_IMAGE=redis:7-alpine
 
 # 日志级别
 LOG_LEVEL=INFO
@@ -406,13 +416,13 @@ FRONTEND_PUBLIC_URL=
 # 启动时是否自动启动 Goofish 定时采集任务
 AUTO_START_CRAWL_JOBS=true
 # 远程官方服务基址（仪表盘广告、系统公告 = 本地内容 + 远程官方内容）
-REMOTE_OFFICIAL_BASE_URL=https://xy.zhinianboke.com
+REMOTE_OFFICIAL_BASE_URL=
 # 是否启用远程官方广告合并展示（官方服务器自身部署建议设为 false）
-ENABLE_REMOTE_ADS=true
+ENABLE_REMOTE_ADS=false
 # 是否启用远程官方公告合并展示（官方服务器自身部署建议设为 false）
-ENABLE_REMOTE_ANNOUNCEMENTS=true
+ENABLE_REMOTE_ANNOUNCEMENTS=false
 # 是否启用远程官方弹窗公告合并展示（官方服务器自身部署建议设为 false）
-ENABLE_REMOTE_POPUP_ANNOUNCEMENTS=true
+ENABLE_REMOTE_POPUP_ANNOUNCEMENTS=false
 ENVEOF
         echo -e "${GREEN}✓ 已生成 .env 文件${NC}"
         echo ""
@@ -517,15 +527,9 @@ cleanup_enc_version() {
 
 # 解析镜像完整引用
 resolve_app_image_refs() {
-    local registry tag
-    registry="$(read_env_value IMAGE_REGISTRY)"
-    tag="$(read_env_value IMAGE_TAG)"
-    registry="${registry:-registry.cn-shanghai.aliyuncs.com/zhinian-software}"
-    tag="${tag:-latest}"
-
     APP_IMAGE_REFS=()
     for name in "${APP_IMAGE_NAMES[@]}"; do
-        APP_IMAGE_REFS+=("${registry}/${name}:${tag}")
+        APP_IMAGE_REFS+=("xianyu-clean/${name#xianyu-}:dev")
     done
 }
 
@@ -539,11 +543,11 @@ record_old_app_image_ids() {
     done
 }
 
-# 拉取最新镜像
-pull_latest_images() {
-    echo -e "${YELLOW}[信息] 拉取最新应用镜像（不影响 MySQL/Redis）...${NC}"
-    "${DC_CMD[@]}" pull "${APP_SERVICES[@]}"
-    echo -e "${GREEN}✓ 最新应用镜像拉取完成${NC}"
+# 构建当前源码镜像
+build_latest_images() {
+    echo -e "${YELLOW}[信息] 从当前源码构建应用镜像（不影响 MySQL/Redis）...${NC}"
+    "${DC_CMD[@]}" build "${APP_SERVICES[@]}"
+    echo -e "${GREEN}✓ 应用镜像构建完成${NC}"
     echo ""
 }
 
@@ -616,11 +620,14 @@ run_update() {
     print_banner
     check_docker
     check_deploy_files
+    # 保留旧生成文件供恢复，然后使用当前分支的源码构建配置。
+    cp "$COMPOSE_FILE" "$COMPOSE_FILE.bak.$(date +%Y%m%d%H%M%S)"
+    generate_compose_file
     create_mount_dirs
     cleanup_enc_version
     resolve_app_image_refs
     record_old_app_image_ids
-    pull_latest_images
+    build_latest_images
     recreate_app_services
     cleanup_old_app_images
     print_success_info
@@ -641,7 +648,7 @@ run_clean_enc() {
 show_help() {
     echo "用法: bash update.sh [update|logs|status|clean-enc|help]"
     echo ""
-    echo "  update    - 拉取最新镜像并重建应用容器，不影响 MySQL/Redis 数据（默认）"
+    echo "  update    - 构建当前源码镜像并重建应用容器，不影响 MySQL/Redis 数据（默认）"
     echo "  logs      - 查看实时日志"
     echo "  status    - 查看服务状态"
     echo "  clean-enc - 仅清理加密版容器和镜像（保留数据卷）"

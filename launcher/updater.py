@@ -29,7 +29,7 @@ from pathlib import Path
 from launcher.version import CURRENT_VERSION
 
 # 更新服务器地址（从 data/update_config.json 读取）
-_DEFAULT_UPDATE_URL = "https://xy-update.zhinianboke.com"
+_DEFAULT_UPDATE_URL = ""
 
 
 def _get_update_url() -> str:
@@ -98,6 +98,9 @@ def check_update() -> dict:
     }
 
     update_url = _get_update_url()
+    if not update_url:
+        result["error"] = "此分支未配置更新服务，请从 fork 的 dev 分支更新源码"
+        return result
     version_url = f"{update_url}/version.json"
 
     try:
@@ -144,6 +147,8 @@ def download_update(filename: str,
     result = {"success": False, "file_path": "", "error": ""}
 
     update_url = _get_update_url()
+    if not update_url:
+        raise ValueError("未配置更新服务")
     download_url = f"{update_url}/{filename}"
 
     # 临时目录用于存放下载文件

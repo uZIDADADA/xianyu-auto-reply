@@ -4,30 +4,7 @@
 
 主系统负责账号管理、消息收发、自动回复、自动发货、商品发布与后台管理；`promotion` 子项目负责返佣账号、选品规则、素材库、发布规则、删除规则和相关修复任务。
 
-## 🔴 说明
-
-> **🔴 诚邀各位开发者提交pr，完善系统**
->
-> **🔴 承接各类项目定制，各类项目均可，有需要可联系，另外我菜，不一定都会**
-
-## 🔴 最新源码地址(建议转存)
-
-> 🔴 我用夸克网盘给你分享了「自动发货」，点击链接或复制整段内容，打开「夸克网盘APP」即可获取。
-> 
-> 🔴 /~79313YhCQU~:/
-> 
-> 🔴 **链接：https://pan.quark.cn/s/af567356cba7**
-
-## 交流群
-
-| 微信群 | QQ群 | 微信公众号 | Telegram | 赞赏支持 |
-|:---:|:---:|:---:|:---:|:---:|
-| ![微信群](https://xy.zhinianboke.com/static/qrcode/wechat-group.png) | ![QQ群](https://xy.zhinianboke.com/static/qrcode/qq-group.jpg) | ![微信公众号](https://xy.zhinianboke.com/static/qrcode/wechat-official-group.jpg) | ![Telegram](https://xy.zhinianboke.com/static/qrcode/telegram-group.png) | ![赞赏支持](https://xy.zhinianboke.com/static/qrcode/reward-group.png) |
-| 扫码加好友拉微信交流群 | 扫码加入QQ交流群 | 关注公众号发送"最新源码"获取最新代码 | 扫码加入Telegram群 | 如果觉得好用，请作者喝杯咖啡 |
-
-如群二维码过期，请关注公众号获取最新群链接。
-
----
+本 fork 的 `dev` 分支移除了界面广告、广告投放入口、作者引流二维码和文档商业推广，默认关闭远程广告与公告。保留原项目业务功能、AGPL-3.0 许可证和作者署名。部署脚本已改为构建当前源码，默认不连接上游更新服务。旧环境中的更新配置需自行清空，已有 `.env` 中的 `REMOTE_OFFICIAL_BASE_URL` 需清空、`ENABLE_REMOTE_*` 需设为 `false`；保留历史广告表以兼容既有数据库，不做删除数据的迁移。
 
 ## 功能概览
 
@@ -122,7 +99,7 @@ xianyu-auto-reply/
 ├── docker-compose.yml    # 本地源码构建编排
 ├── deploy.sh             # 一键部署脚本（自动生成远程镜像版 compose）
 ├── deploy_remote.sh      # 远程 MySQL/Redis 一键部署脚本（自动生成 docker-compose.remote.yml）
-├── update.sh             # 一键更新脚本（拉取最新远程镜像）
+├── update.sh             # 一键更新脚本（从当前源码构建镜像）
 ├── build.sh              # 本地源码全量构建脚本
 ├── build_frontend.sh     # 单独构建并重启 Frontend
 ├── build_backend_web.sh  # 单独构建并重启 Backend-Web
@@ -160,30 +137,31 @@ xianyu-auto-reply/
 
 ### 方式一：服务器一键部署（推荐）
 
-服务器已安装 Docker 与 Docker Compose 后，直接执行一键部署脚本即可：
+先克隆本 fork 的 dev 分支并进入项目目录，再执行仓库内的部署脚本：
 
 ```bash
-curl -fsSL https://xy-update.zhinianboke.com/deploy.sh | sed 's/\r$//' | bash
+bash deploy.sh
 ```
 
-该脚本会自动完成部署所需的配置生成、镜像拉取、旧容器清理与服务启动。
+该脚本会自动完成部署所需的配置生成、源码构建、旧容器清理与服务启动。
 
 更新版本，直接执行一键更新脚本即可：
 
 ```bash
-curl -fsSL https://xy-update.zhinianboke.com/update.sh | sed 's/\r$//' | bash
+git pull --ff-only origin dev
+bash update.sh
 ```
 
 ### 方式二：克隆仓库部署
 
 ```bash
-git clone https://github.com/zhinianboke/xianyu-auto-reply.git
+git clone -b dev https://github.com/uZIDADADA/xianyu-auto-reply.git
 cd xianyu-auto-reply
 bash deploy.sh
 ```
 
 - 首次运行会自动生成 `.env` 配置文件和 `docker-compose.deploy.yml`
-- 从阿里云镜像仓库拉取预构建镜像并启动
+- 从当前 `dev` 分支源码构建应用镜像，并使用官方 MySQL / Redis 镜像
 - 如果检测到加密版容器会自动清理（保留数据卷）
 - 部署完成后默认访问地址：
   - 前端：`http://服务器IP:9000`
@@ -193,6 +171,7 @@ bash deploy.sh
 后续更新：
 
 ```bash
+git pull --ff-only origin dev
 bash update.sh
 ```
 
@@ -204,14 +183,14 @@ bash update.sh
 
 ```bash
 # 1) 首次运行：自动生成 .env.remote 后退出，提示填写远程连接信息
-curl -fsSL https://xy-update.zhinianboke.com/deploy_remote.sh | sed 's/\r$//' | bash
+bash deploy_remote.sh
 
 # 2) 编辑 .env.remote，填写真实的远程地址（勿填 localhost）
 #    MYSQL_HOST / REDIS_HOST 等
 vim .env.remote
 
 # 3) 再次运行：校验配置 → 自动生成 docker-compose.remote.yml → 拉取镜像 → 启动
-curl -fsSL https://xy-update.zhinianboke.com/deploy_remote.sh | sed 's/\r$//' | bash
+bash deploy_remote.sh
 ```
 
 > 已克隆仓库的也可改用本地脚本：`bash deploy_remote.sh`（首次生成配置后退出，填好 `.env.remote` 再次执行）。
@@ -387,7 +366,7 @@ npm run dev
 |------|------|------|
 | `deploy.sh` | Linux | 生成远程镜像版 compose 并拉取镜像启动（首次部署） |
 | `deploy_remote.sh` | Linux | 使用远程 MySQL/Redis 部署，生成 `docker-compose.remote.yml` 与 `.env.remote` 并启动应用服务 |
-| `update.sh` | Linux | 拉取最新远程镜像并重建应用容器（后续更新） |
+| `update.sh` | Linux | 从当前源码构建镜像并重建应用容器（后续更新） |
 | `build.sh` | Linux | 从源码全量构建所有 Docker 镜像并启动 |
 | `build_frontend.sh` | Linux | 单独重建并重启 Frontend 服务 |
 | `build_backend_web.sh` | Linux | 单独重建并重启 Backend-Web 服务 |
@@ -440,7 +419,7 @@ sed -i 's/\r$//' deploy.sh
 bash deploy.sh
 
 # 方法二：通过管道执行（推荐远程脚本使用）
-curl -fsSL https://xy-update.zhinianboke.com/deploy.sh | sed 's/\r$//' | bash
+bash deploy.sh
 ```
 
 ## 许可证
@@ -1143,7 +1122,6 @@ GET /api/v1/external/message-logs?secret_key=your-secret-key&item_id=商品ID&me
 
 ## Star History
 
-[![Star History Chart](https://star-history.dera.page/svg?repos=zhinianboke/xianyu-auto-reply&type=Date)](https://star-history.dera.page/#zhinianboke/xianyu-auto-reply&Date)
 
 ## 移动端 App (xianyu-mobile)
 

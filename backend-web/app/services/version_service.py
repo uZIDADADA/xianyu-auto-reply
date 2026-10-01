@@ -8,7 +8,7 @@
 
 说明：
 - 更新服务器地址与格式跟桌面启动器（launcher/updater.py）保持一致，
-  详见 data/update_config.json 与 https://xy-update.zhinianboke.com/version.json。
+  可在 data/update_config.json 配置自己的更新服务，默认禁用。
 - 所有外部请求使用 httpx 异步客户端，超时 10 秒。
 """
 from __future__ import annotations
@@ -22,7 +22,7 @@ from loguru import logger
 
 
 # 默认更新服务器地址（与 launcher/updater.py 保持一致）
-_DEFAULT_UPDATE_URL = "https://xy-update.zhinianboke.com"
+_DEFAULT_UPDATE_URL = ""
 # 远程 version.json 请求超时时间（秒）
 _REMOTE_TIMEOUT_SECONDS = 10
 # HTTP User-Agent，便于服务端识别来源
@@ -166,6 +166,9 @@ async def check_update() -> dict[str, Any]:
         return result
 
     update_url = _get_update_url()
+    if not update_url:
+        result["error"] = "此分支未配置更新服务，请从 fork 的 dev 分支更新源码"
+        return result
     version_url = f"{update_url}/version.json"
 
     try:

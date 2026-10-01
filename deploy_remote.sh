@@ -2,7 +2,7 @@
 # ==========================================
 # 闲鱼自动回复系统 - 远程 MySQL/Redis 一键部署脚本
 # 使用外部（远程）MySQL 和 Redis，仅启动应用服务（不内置 mysql/redis 容器）
-# 自动生成 docker-compose.remote.yml 与 .env.remote 并拉取镜像启动
+# 自动生成 docker-compose.remote.yml 与 .env.remote 并构建镜像启动
 # 用法: bash deploy_remote.sh
 # ==========================================
 
@@ -81,8 +81,6 @@ WEBSOCKET_PORT=8090
 SCHEDULER_PORT=8091
 
 # 镜像配置
-IMAGE_REGISTRY=registry.cn-shanghai.aliyuncs.com/zhinian-software
-IMAGE_TAG=latest
 
 # 日志级别
 LOG_LEVEL=INFO
@@ -122,13 +120,13 @@ FRONTEND_PUBLIC_URL=
 # 启动时是否自动启动 Goofish 定时采集任务
 AUTO_START_CRAWL_JOBS=true
 # 远程官方服务基址（仪表盘广告、系统公告 = 本地内容 + 远程官方内容）
-REMOTE_OFFICIAL_BASE_URL=https://xy.zhinianboke.com
+REMOTE_OFFICIAL_BASE_URL=
 # 是否启用远程官方广告合并展示（官方服务器自身部署建议设为 false）
-ENABLE_REMOTE_ADS=true
+ENABLE_REMOTE_ADS=false
 # 是否启用远程官方公告合并展示（官方服务器自身部署建议设为 false）
-ENABLE_REMOTE_ANNOUNCEMENTS=true
+ENABLE_REMOTE_ANNOUNCEMENTS=false
 # 是否启用远程官方弹窗公告合并展示（官方服务器自身部署建议设为 false）
-ENABLE_REMOTE_POPUP_ANNOUNCEMENTS=true
+ENABLE_REMOTE_POPUP_ANNOUNCEMENTS=false
 ENVEOF
     echo -e "${GREEN}✓ 已生成 .env.remote 文件${NC}"
     echo -e "${RED}[重要] 请先编辑 $ENV_FILE 填写远程 MYSQL_HOST / REDIS_HOST 等连接信息，${NC}"
@@ -148,7 +146,10 @@ services:
 
   # Backend-Web 服务
   backend-web:
-    image: ${IMAGE_REGISTRY:-registry.cn-shanghai.aliyuncs.com/zhinian-software}/xianyu-backend-web:${IMAGE_TAG:-latest}
+    image: xianyu-clean/backend-web:dev
+    build:
+      context: .
+      dockerfile: backend-web/Dockerfile
     container_name: xianyu-backend-web
     restart: unless-stopped
     environment:
@@ -178,10 +179,10 @@ services:
       - EXTERNAL_API_KEY=${EXTERNAL_API_KEY:-zhinian_bk}
       - FRONTEND_PUBLIC_URL=${FRONTEND_PUBLIC_URL:-}
       - AUTO_START_CRAWL_JOBS=${AUTO_START_CRAWL_JOBS:-true}
-      - REMOTE_OFFICIAL_BASE_URL=${REMOTE_OFFICIAL_BASE_URL:-https://xy.zhinianboke.com}
-      - ENABLE_REMOTE_ADS=${ENABLE_REMOTE_ADS:-true}
-      - ENABLE_REMOTE_ANNOUNCEMENTS=${ENABLE_REMOTE_ANNOUNCEMENTS:-true}
-      - ENABLE_REMOTE_POPUP_ANNOUNCEMENTS=${ENABLE_REMOTE_POPUP_ANNOUNCEMENTS:-true}
+      - REMOTE_OFFICIAL_BASE_URL=${REMOTE_OFFICIAL_BASE_URL:-}
+      - ENABLE_REMOTE_ADS=${ENABLE_REMOTE_ADS:-false}
+      - ENABLE_REMOTE_ANNOUNCEMENTS=${ENABLE_REMOTE_ANNOUNCEMENTS:-false}
+      - ENABLE_REMOTE_POPUP_ANNOUNCEMENTS=${ENABLE_REMOTE_POPUP_ANNOUNCEMENTS:-false}
       - BROWSER_HEADLESS=true
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - SQL_ECHO=${SQL_ECHO:-false}
@@ -205,7 +206,10 @@ services:
 
   # WebSocket 服务
   websocket:
-    image: ${IMAGE_REGISTRY:-registry.cn-shanghai.aliyuncs.com/zhinian-software}/xianyu-websocket:${IMAGE_TAG:-latest}
+    image: xianyu-clean/websocket:dev
+    build:
+      context: .
+      dockerfile: websocket/Dockerfile
     container_name: xianyu-websocket
     restart: unless-stopped
     environment:
@@ -255,7 +259,10 @@ services:
 
   # Scheduler 服务
   scheduler:
-    image: ${IMAGE_REGISTRY:-registry.cn-shanghai.aliyuncs.com/zhinian-software}/xianyu-scheduler:${IMAGE_TAG:-latest}
+    image: xianyu-clean/scheduler:dev
+    build:
+      context: .
+      dockerfile: scheduler/Dockerfile
     container_name: xianyu-scheduler
     restart: unless-stopped
     environment:
@@ -303,7 +310,10 @@ services:
 
   # 前端服务
   frontend:
-    image: ${IMAGE_REGISTRY:-registry.cn-shanghai.aliyuncs.com/zhinian-software}/xianyu-frontend:${IMAGE_TAG:-latest}
+    image: xianyu-clean/frontend:dev
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
     container_name: xianyu-frontend
     restart: unless-stopped
     environment:
@@ -363,9 +373,9 @@ mkdir -p \
     "$WORK_DIR/xianyu_auto_reply/browser_data"
 
 # ========== 部署 ==========
-echo -e "${YELLOW}步骤 1/3: 拉取最新镜像（旧容器保持运行，减少停机时间）...${NC}"
-$DC_CMD pull
-echo -e "${GREEN}✓ 镜像拉取完成${NC}"
+echo -e "${YELLOW}步骤 1/3: 构建当前源码镜像（旧容器保持运行，减少停机时间）...${NC}"
+$DC_CMD build
+echo -e "${GREEN}✓ 镜像构建完成${NC}"
 
 echo ""
 echo -e "${YELLOW}步骤 2/3: 停止旧容器（仅本项目）...${NC}"

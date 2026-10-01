@@ -167,7 +167,6 @@ const HIDEABLE_MENUS: { key: string; label: string }[] = [
   { key: 'personal-settings', label: '个人设置' },
   { key: 'tutorial', label: '使用教程' },
   { key: 'feedback', label: '意见反馈' },
-  { key: 'ad-apply', label: '广告申请' },
   { key: 'disclaimer', label: '免责声明' },
   { key: 'about', label: '关于' },
 ];
