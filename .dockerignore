@@ -16,3 +16,9 @@ update.sh
 .env
 .env.*
 docker-compose.yml
+docker-compose.synology.yml
+synology.sh
+runtime
+data
+frontend/node_modules
+frontend/dist

@@ -135,6 +135,8 @@ xianyu-auto-reply/
 
 ## 快速开始
 
+群晖部署如需将配置、数据库、日志和上传文件集中在一个文件夹，参见 [群晖集中目录部署](SYNOLOGY.md)。使用 `synology.sh` 与 `docker-compose.synology.yml`，不创建 Docker 命名数据卷。
+
 ### 方式一：克隆仓库部署（推荐）
 
 ```bash
